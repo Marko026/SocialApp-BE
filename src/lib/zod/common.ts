@@ -25,3 +25,8 @@ export const viewerIdSchema = z.object({
 export const searchQuerySchema = z.object({
   q: z.string().trim().optional(),
 });
+
+export const deleteReplyCommentSchema = z.object({
+  commentId: z.string().optional(),
+  replyId: z.string().optional(),
+});

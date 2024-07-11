@@ -452,10 +452,10 @@ export const getGroupById = async (
     }
 
     const isGroupOwner = group.authorId === viewerId;
-    const isGroupAdmin = group.members.some(
+    const isGroupAdmin = group.members?.some(
       (member) => member.user.id === viewerId && member.role === Role.ADMIN
     );
-    const isGroupUser = group.members.some(
+    const isGroupUser = group.members?.some(
       (member) => member.user.id === viewerId && member.role === Role.USER
     );
 

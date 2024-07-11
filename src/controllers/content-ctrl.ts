@@ -2,6 +2,7 @@ import { idSchema, viewerIdSchema } from '@/lib/zod/common';
 import {
   allContentQuerySchema,
   commentsSchema,
+  deleteReplyCommentSchema,
   getAllContentSidebarDetailsSchema,
   likeCommentsSchema,
   meetupSchema,
@@ -162,9 +163,24 @@ export const getContentById = async (
       },
     });
 
+    if (!content) {
+      return res.status(404).json({ message: 'Content not found!' });
+    }
+
+    await prisma.content.update({
+      where: {
+        id,
+      },
+      data: {
+        viewsCount: {
+          increment: 1,
+        },
+      },
+    });
+
     res.status(200).json(content);
   } catch (error) {
-    console.log('Error fething tags', error);
+    console.log('Error fetching content', error);
     res.status(500).json({ message: 'Internal server error!' });
   }
 };
@@ -597,6 +613,7 @@ export const getAllComments = async (
         },
         replies: {
           select: {
+            id: true,
             text: true,
             createdAt: true,
             author: {
@@ -633,28 +650,40 @@ export const createComment = async (
   const { replyingToId, text, authorId, contentId } = req.body;
 
   try {
-    await prisma.comment.create({
-      data: {
-        text,
-        author: {
-          connect: {
-            id: authorId,
+    await prisma.$transaction(async (prisma) => {
+      await prisma.comment.create({
+        data: {
+          text,
+          author: {
+            connect: {
+              id: authorId,
+            },
+          },
+          replyingTo: replyingToId
+            ? {
+                connect: {
+                  id: replyingToId,
+                },
+              }
+            : undefined,
+          content: {
+            connect: {
+              id: contentId,
+            },
           },
         },
-        replyingTo: replyingToId
-          ? {
-              connect: {
-                id: replyingToId,
-              },
-            }
-          : undefined,
-        content: {
-          connect: {
-            id: contentId,
+      });
+
+      await prisma.content.update({
+        where: { id: contentId },
+        data: {
+          commentsCount: {
+            increment: 1,
           },
         },
-      },
+      });
     });
+
     res.status(201).json({ message: 'Comment created successfully!' });
   } catch (error) {
     console.log('Error creating comment', error);
@@ -667,12 +696,27 @@ export const deleteComment = async (
   res: Response
 ) => {
   const commentId = req.body.id;
-
   try {
-    await prisma.comment.delete({
-      where: {
-        id: commentId,
-      },
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found!' });
+    }
+    await prisma.$transaction(async (prisma) => {
+      await prisma.comment.delete({
+        where: { id: commentId },
+      });
+
+      await prisma.content.update({
+        where: { id: comment.contentId },
+        data: {
+          commentsCount: {
+            decrement: 1,
+          },
+        },
+      });
     });
     res.status(200).json({ message: 'Comment deleted successfully!' });
   } catch (error) {
@@ -681,11 +725,50 @@ export const deleteComment = async (
   }
 };
 
+export const deleteCommentReply = async (
+  req: TypedRequestBody<typeof deleteReplyCommentSchema>,
+  res: Response
+) => {
+  const { commentId, id, contentId } = req.body;
+
+  try {
+    await prisma.comment.update({
+      where: {
+        id: commentId,
+      },
+      data: {
+        replies: {
+          delete: {
+            id: id,
+          },
+        },
+      },
+    });
+
+    await prisma.content.update({
+      where: {
+        id: contentId,
+      },
+      data: {
+        commentsCount: {
+          decrement: 1,
+        },
+      },
+    });
+
+    res.status(200).json({ message: 'Comment reply deleted successfully!' });
+  } catch (error) {
+    console.log('Error deleting comment reply', error);
+    res.status(500).json({ message: 'Internal server error!' });
+  }
+};
+
 export const updateComment = async (
   req: TypedRequestBody<typeof commentsSchema>,
   res: Response
 ) => {
-  const { id, replyingToId, text, authorId, contentId } = req.body;
+  const { id, replyingToId, text, textReply, replyId, authorId, contentId } =
+    req.body;
 
   try {
     if (replyingToId) {
@@ -695,6 +778,7 @@ export const updateComment = async (
         },
         data: {
           text,
+
           author: {
             connect: {
               id: authorId,
@@ -714,6 +798,16 @@ export const updateComment = async (
         },
         data: {
           text,
+          replies: {
+            update: {
+              where: {
+                id: replyId,
+              },
+              data: {
+                text: textReply,
+              },
+            },
+          },
           author: {
             connect: {
               id: authorId,

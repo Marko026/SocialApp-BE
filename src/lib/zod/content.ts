@@ -52,6 +52,9 @@ export const commentsSchema = z.object({
     .trim()
     .uuid('ID must be unique and uuid')
     .length(36, 'ID must be exactly 36 characters long!'),
+  commentCount: z.number().optional(),
+  textReply: z.string().trim().optional(),
+  replyId: z.string().trim().optional(),
 });
 
 export const likeCommentsSchema = z.object({
@@ -148,6 +151,12 @@ export const getAllContentSidebarDetailsSchema = z.object({
     .trim()
     .uuid('ID must be unique and uuid')
     .length(36, 'ID must be exactly 36 characters long!'),
+});
+
+export const deleteReplyCommentSchema = z.object({
+  id: z.string(),
+  commentId: z.string(),
+  contentId: z.string(),
 });
 
 // const contentUpdateBaseSchema = z.object({

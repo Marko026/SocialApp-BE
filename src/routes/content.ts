@@ -5,6 +5,7 @@ import {
   createPost,
   createUpdateCommentLike,
   deleteComment,
+  deleteCommentReply,
   getAllComments,
   getAllTags,
   getContent,
@@ -19,6 +20,7 @@ import { idSchema, viewerIdSchema } from '@/lib/zod/common';
 import {
   allContentQuerySchema,
   commentsSchema,
+  deleteReplyCommentSchema,
   getAllContentSidebarDetailsSchema,
   meetupSchema,
   podcastSchema,
@@ -103,6 +105,12 @@ contentRoutes.delete(
   '/comment/delete',
   validateRequestBody(idSchema),
   deleteComment
+);
+
+contentRoutes.delete(
+  '/comment/reply/delete',
+  validateRequestBody(deleteReplyCommentSchema),
+  deleteCommentReply
 );
 
 contentRoutes.post(
